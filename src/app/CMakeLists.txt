@@ -1,0 +1,8 @@
+set(MS_APP_SOURCES main.cpp)
+if(WIN32)
+  list(APPEND MS_APP_SOURCES ${CMAKE_SOURCE_DIR}/resources/marshalls.rc)
+endif()
+add_executable(marshalls-studio WIN32 ${MS_APP_SOURCES})
+target_link_libraries(marshalls-studio PRIVATE ms_ui)
+set_target_properties(marshalls-studio PROPERTIES OUTPUT_NAME "MarshallsStudio")
+install(TARGETS marshalls-studio RUNTIME DESTINATION bin)
