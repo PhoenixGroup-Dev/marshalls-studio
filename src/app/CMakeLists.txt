@@ -1,4 +1,4 @@
-set(MS_APP_SOURCES main.cpp)
+set(MS_APP_SOURCES main.cpp ${CMAKE_SOURCE_DIR}/resources/marshalls.qrc)
 if(WIN32)
   list(APPEND MS_APP_SOURCES ${CMAKE_SOURCE_DIR}/resources/marshalls.rc)
 endif()

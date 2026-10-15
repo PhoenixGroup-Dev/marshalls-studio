@@ -72,7 +72,9 @@ signals:
 	void addRequested(int kind);
 
 private:
+	void doRebuild();
 	void tick();
+	bool m_rebuildPending = false;
 	Studio *m_studio;
 	QHBoxLayout *m_strips;
 	QWidget *m_host;

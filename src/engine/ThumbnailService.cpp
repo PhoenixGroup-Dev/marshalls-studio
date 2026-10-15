@@ -1,5 +1,6 @@
 #include "ThumbnailService.h"
 
+#include <algorithm>
 #include <obs.h>
 #include <graphics/graphics.h>
 

@@ -9,12 +9,20 @@
 #include <QCommandLineParser>
 #include <QDir>
 #include <QFile>
+#include <QIcon>
 #include <QLibraryInfo>
 #include <QLocale>
 #include <QLockFile>
 #include <QTranslator>
 #include <QMessageBox>
+#include <QSocketNotifier>
 #include <QStandardPaths>
+
+#if !defined(_WIN32)
+#include <csignal>
+#include <sys/socket.h>
+#include <unistd.h>
+#endif
 
 using namespace ms;
 
@@ -33,6 +41,18 @@ void qtMessageHandler(QtMsgType type, const QMessageLogContext &, const QString 
 	Log::instance().write(l, QStringLiteral("qt"), msg);
 }
 
+#if !defined(_WIN32)
+// SIGTERM/SIGINT (system shutdown, Ctrl+C) end the session through the normal
+// path so outputs are finalized and the configuration is saved.
+int g_signalFd[2] = {-1, -1};
+void unixSignalHandler(int)
+{
+	const char c = 1;
+	ssize_t r = ::write(g_signalFd[0], &c, 1);
+	(void)r;
+}
+#endif
+
 } // namespace
 
 int main(int argc, char *argv[])
@@ -47,6 +67,12 @@ int main(int argc, char *argv[])
 	QApplication::setOrganizationName(QStringLiteral("Marshalls"));
 	QApplication::setApplicationName(QStringLiteral("Marshalls Studio"));
 	QApplication::setApplicationVersion(QStringLiteral(MS_VERSION));
+	{
+		QIcon icon;
+		for (int s : {32, 48, 64, 128, 256})
+			icon.addFile(QStringLiteral(":/marshalls/marshalls-%1.png").arg(s), QSize(s, s));
+		QApplication::setWindowIcon(icon);
+	}
 
 	QCommandLineParser parser;
 	parser.setApplicationDescription(QStringLiteral("Marshalls Studio — produção audiovisual ao vivo"));
@@ -121,6 +147,26 @@ int main(int argc, char *argv[])
 	}
 	if (!studio.startupNotes().isEmpty())
 		notes << studio.startupNotes();
+
+#if !defined(_WIN32)
+	if (::socketpair(AF_UNIX, SOCK_STREAM, 0, g_signalFd) == 0) {
+		auto *notifier = new QSocketNotifier(g_signalFd[1], QSocketNotifier::Read, &app);
+		QObject::connect(notifier, &QSocketNotifier::activated, &app, [] {
+			char c;
+			ssize_t r = ::read(g_signalFd[1], &c, 1);
+			(void)r;
+			logWarn("app", "Sinal de término recebido; encerrando com segurança");
+			QApplication::closeAllWindows();
+			QApplication::quit();
+		});
+		struct sigaction sa = {};
+		sa.sa_handler = unixSignalHandler;
+		sigemptyset(&sa.sa_mask);
+		sa.sa_flags = SA_RESTART;
+		sigaction(SIGTERM, &sa, nullptr);
+		sigaction(SIGINT, &sa, nullptr);
+	}
+#endif
 
 	int rc = 0;
 	{

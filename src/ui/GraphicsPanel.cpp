@@ -4,6 +4,7 @@
 #include "Studio.h"
 #include "Theme.h"
 
+#include <algorithm>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMenu>
@@ -85,8 +86,21 @@ GraphicsPanel::GraphicsPanel(Studio *studio, QWidget *parent) : QWidget(parent),
 
 void GraphicsPanel::rebuild()
 {
+	if (m_rebuildPending)
+		return;
+	m_rebuildPending = true;
+	QTimer::singleShot(0, this, &GraphicsPanel::doRebuild);
+}
+
+// Deferred: an edit button's handler (dialog → update) may trigger it.
+void GraphicsPanel::doRebuild()
+{
+	m_rebuildPending = false;
 	while (QLayoutItem *it = m_list->takeAt(0)) {
-		delete it->widget();
+		if (QWidget *w = it->widget()) {
+			w->hide();
+			w->deleteLater();
+		}
 		delete it;
 	}
 	QVector<const LowerThirdConfig *> lts;
@@ -120,11 +134,14 @@ void GraphicsPanel::rebuild()
 		edit->setProperty("flat", true);
 		edit->setFocusPolicy(Qt::NoFocus);
 		edit->setToolTip(QStringLiteral("Editar"));
+		// Queued: the editor may delete/rebuild this row while it is open.
 		connect(edit, &QToolButton::clicked, this, [this, uid, type] {
-			if (type == QLatin1String("lt"))
-				emit editLowerThird(uid);
-			else
-				emit editOverlay(uid);
+			QMetaObject::invokeMethod(this, [this, uid, type] {
+				if (type == QLatin1String("lt"))
+					emit editLowerThird(uid);
+				else
+					emit editOverlay(uid);
+			}, Qt::QueuedConnection);
 		});
 		h->addWidget(edit);
 		auto *toggle = new QPushButton(QStringLiteral("EXIBIR"));

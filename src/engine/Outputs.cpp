@@ -5,6 +5,7 @@
 #include "Planning.h"
 #include "RtmpService.h"
 
+#include <algorithm>
 #include <obs.h>
 #include <media-io/media-remux.h>
 #include <util/platform.h>

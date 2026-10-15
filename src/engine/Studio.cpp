@@ -3,6 +3,7 @@
 #include "Log.h"
 #include "Planning.h"
 
+#include <algorithm>
 #include <QDir>
 #include <QStandardPaths>
 

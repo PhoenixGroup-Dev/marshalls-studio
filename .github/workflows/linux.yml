@@ -1,0 +1,36 @@
+# Linux build + unit tests + real engine integration tests (Xvfb, PulseAudio
+# virtual inputs and a local nginx-rtmp server).
+name: Linux
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -t noble-backports libobs-dev obs-studio
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y cmake ninja-build g++ qt6-base-dev qt6-base-dev-tools \
+            qt6-translations-l10n libgl1-mesa-dev libgl1-mesa-dri xvfb x11-xserver-utils pulseaudio pulseaudio-utils \
+            nginx-light libnginx-mod-rtmp ffmpeg
+      - name: Build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          cmake --build build
+      - name: Unit tests
+        run: ctest --test-dir build -LE integration --output-on-failure
+      - name: Integration tests (real libobs engine)
+        env:
+          MS_TEST_ENV: ${{ runner.temp }}/ms-test-env
+          QTEST_DISABLE_STACK_DUMP: "1"
+        run: |
+          bash scripts/linux/test-env.sh start
+          export DISPLAY=:99
+          ./build/tests/engine/tst_engine

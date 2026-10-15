@@ -1,0 +1,53 @@
+# Reproducible Windows build: libobs from official sources, application,
+# hardware-independent tests, relocatable package and NSIS installer.
+name: Windows
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 180
+    env:
+      OBS_VERSION: "30.2.3"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache libobs build
+        id: obs-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps/obs-install
+            deps/obs-studio/.deps
+          key: obs-${{ env.OBS_VERSION }}-windows-x64-v1
+
+      - name: Build libobs ${{ env.OBS_VERSION }}
+        if: steps.obs-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: ./scripts/windows/build-obs.ps1 -ObsVersion $env:OBS_VERSION
+
+      - name: MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1.13.0
+        with:
+          arch: x64
+
+      - name: Build, test and package
+        shell: pwsh
+        run: ./scripts/windows/build.ps1 -Config RelWithDebInfo
+
+      - name: Installer
+        shell: pwsh
+        run: |
+          choco install nsis -y --no-progress
+          ./scripts/windows/make-installer.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MarshallsStudio-windows-x64
+          path: |
+            dist/*.exe
+            dist/MarshallsStudio

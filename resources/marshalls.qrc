@@ -1,0 +1,9 @@
+<RCC>
+  <qresource prefix="/marshalls">
+    <file>marshalls-32.png</file>
+    <file>marshalls-48.png</file>
+    <file>marshalls-64.png</file>
+    <file>marshalls-128.png</file>
+    <file>marshalls-256.png</file>
+  </qresource>
+</RCC>

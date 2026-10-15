@@ -5,6 +5,7 @@
 #include "Studio.h"
 #include "Theme.h"
 
+#include <algorithm>
 #include <QColorDialog>
 #include <QComboBox>
 #include <QDialogButtonBox>

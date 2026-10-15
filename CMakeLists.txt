@@ -37,4 +37,3 @@ if(MS_BUILD_TESTS)
   add_subdirectory(tests)
 endif()
 
-include(cmake/Packaging.cmake OPTIONAL)

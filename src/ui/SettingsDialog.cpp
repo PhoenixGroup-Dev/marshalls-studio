@@ -9,6 +9,7 @@
 #include "Studio.h"
 #include "Theme.h"
 
+#include <algorithm>
 #include <obs.h>
 
 #include <QApplication>

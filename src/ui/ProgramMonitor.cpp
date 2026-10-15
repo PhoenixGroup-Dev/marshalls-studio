@@ -6,6 +6,7 @@
 #include "Studio.h"
 #include "Theme.h"
 
+#include <algorithm>
 #include <obs.h>
 
 #include <QHBoxLayout>
@@ -50,9 +51,7 @@ void ObsDisplay::createDisplay()
 	info.format = GS_BGRA;
 	info.zsformat = GS_ZS_NONE;
 #ifdef _WIN32
-	info.window.hwnd = reinterpret_cast<HWND>(winId());
-#elif defined(__APPLE__)
-	info.window.view = reinterpret_cast<id>(winId());
+	info.window.hwnd = reinterpret_cast<void *>(winId());
 #else
 	info.window.id = uint32_t(winId());
 	info.window.display = ObsPlatform::qtX11Display();

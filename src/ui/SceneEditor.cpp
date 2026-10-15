@@ -5,6 +5,8 @@
 #include "Studio.h"
 #include "Theme.h"
 
+#include <algorithm>
+#include <cmath>
 #include <QCheckBox>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>

@@ -5,6 +5,7 @@
 #include "Studio.h"
 #include "Theme.h"
 
+#include <algorithm>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMenu>
@@ -203,7 +204,10 @@ ChannelStrip::ChannelStrip(Studio *studio, const QString &uid, int index, QWidge
 											: MonitorMode::Off;
 		m_studio->setMonitor(m_uid, next);
 	});
-	connect(m_fx, &QToolButton::clicked, this, [this] { emit settingsRequested(m_uid); });
+	// Queued: the dialog may remove this channel, which rebuilds the mixer.
+	connect(m_fx, &QToolButton::clicked, this, [this] {
+		QMetaObject::invokeMethod(this, [this] { emit settingsRequested(m_uid); }, Qt::QueuedConnection);
+	});
 	connect(m_reconnect, &QToolButton::clicked, this, [this] { m_studio->engine().reconnectSource(m_uid); });
 	refresh();
 }
@@ -377,10 +381,24 @@ AudioMixer::AudioMixer(Studio *studio, QWidget *parent) : QWidget(parent), m_stu
 
 void AudioMixer::rebuild()
 {
-	qDeleteAll(m_list);
-	m_list.clear();
-	while (QLayoutItem *it = m_strips->takeAt(0))
+	if (m_rebuildPending)
+		return;
+	m_rebuildPending = true;
+	QTimer::singleShot(0, this, &AudioMixer::doRebuild);
+}
+
+// Deferred: a strip's own button handler (FX → dialog → remove) may trigger it.
+void AudioMixer::doRebuild()
+{
+	m_rebuildPending = false;
+	while (QLayoutItem *it = m_strips->takeAt(0)) {
+		if (QWidget *w = it->widget()) {
+			w->hide();
+			w->deleteLater();
+		}
 		delete it;
+	}
+	m_list.clear();
 	int i = 0;
 	for (const QString &uid : m_studio->audioChannels()) {
 		auto *s = new ChannelStrip(m_studio, uid, ++i);

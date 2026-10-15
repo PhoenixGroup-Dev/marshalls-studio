@@ -1,5 +1,6 @@
 #include "LowerThird.h"
 
+#include <algorithm>
 #include <obs-module.h>
 #include <obs.h>
 #include <graphics/graphics.h>

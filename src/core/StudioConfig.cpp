@@ -1,5 +1,6 @@
 #include "StudioConfig.h"
 
+#include <algorithm>
 #include <QJsonArray>
 #include <QUuid>
 

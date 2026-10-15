@@ -5,6 +5,7 @@
 #include "Studio.h"
 #include "Theme.h"
 
+#include <algorithm>
 #include <QComboBox>
 #include <QDateTime>
 #include <QDesktopServices>

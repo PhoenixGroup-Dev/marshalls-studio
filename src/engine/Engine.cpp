@@ -5,6 +5,8 @@
 #include "Planning.h"
 #include "RtmpService.h"
 
+#include <algorithm>
+#include <cmath>
 #include <obs.h>
 #include <obs-module.h>
 #if !defined(_WIN32) && !defined(__APPLE__)

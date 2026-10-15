@@ -4,6 +4,7 @@
 #include "Studio.h"
 #include "Theme.h"
 
+#include <algorithm>
 #include <obs.h>
 
 #include <QApplication>
@@ -311,7 +312,9 @@ void SourceCard::mousePressEvent(QMouseEvent *e)
 {
 	if (e->button() == Qt::RightButton) {
 		emit clicked(m_ref);
-		emit contextMenuRequested(m_ref, e->globalPosition().toPoint());
+		// Open the menu after this handler returns (the menu may delete the card).
+		const QPoint pos = e->globalPosition().toPoint();
+		QMetaObject::invokeMethod(this, [this, pos] { emit contextMenuRequested(m_ref, pos); }, Qt::QueuedConnection);
 		return;
 	}
 	if (e->button() != Qt::LeftButton)
@@ -357,7 +360,12 @@ void SourceCard::mouseReleaseEvent(QMouseEvent *e)
 		case Quick::PlayPause: m_studio->engine().mediaPlayPause(m_ref.uid); break;
 		case Quick::Restart: m_studio->engine().mediaRestart(m_ref.uid); break;
 		case Quick::Reconnect: m_studio->engine().reconnectSource(m_ref.uid); break;
-		case Quick::Menu: emit contextMenuRequested(m_ref, e->globalPosition().toPoint()); break;
+		case Quick::Menu: {
+			const QPoint pos = e->globalPosition().toPoint();
+			QMetaObject::invokeMethod(this, [this, pos] { emit contextMenuRequested(m_ref, pos); },
+						  Qt::QueuedConnection);
+			break;
+		}
 		case Quick::None: break;
 		}
 	}
@@ -372,7 +380,7 @@ void SourceCard::mouseDoubleClickEvent(QMouseEvent *e)
 	for (const auto &b : quickButtons())
 		if (b.rect.contains(e->position()))
 			return;
-	emit doubleClicked(m_ref);
+	QMetaObject::invokeMethod(this, [this] { emit doubleClicked(m_ref); }, Qt::QueuedConnection);
 }
 
 void SourceCard::enterEvent(QEnterEvent *)
@@ -409,7 +417,8 @@ void SourceCard::dropEvent(QDropEvent *e)
 	const ContentRef moved = ContentRef::fromKey(QString::fromUtf8(e->mimeData()->data(kMime)));
 	if (moved.isValid() && moved != m_ref) {
 		e->acceptProposedAction();
-		emit dropped(moved, m_ref);
+		const ContentRef target = m_ref;
+		QMetaObject::invokeMethod(this, [this, moved, target] { emit dropped(moved, target); }, Qt::QueuedConnection);
 	}
 }
 
@@ -574,9 +583,24 @@ bool SourceGrid::matchesFilter(const ContentRef &ref) const
 	return false;
 }
 
+// Rebuilds are deferred and coalesced: they are often triggered from inside a
+// card's own event handler (context menu → dialog → content change), and the
+// card must not be destroyed while its handler is still on the stack.
 void SourceGrid::rebuild()
 {
-	qDeleteAll(m_cards);
+	if (m_rebuildPending)
+		return;
+	m_rebuildPending = true;
+	QTimer::singleShot(0, this, &SourceGrid::doRebuild);
+}
+
+void SourceGrid::doRebuild()
+{
+	m_rebuildPending = false;
+	for (SourceCard *c : std::as_const(m_cards)) {
+		c->hide();
+		c->deleteLater();
+	}
 	m_cards.clear();
 	const auto order = m_studio->gridOrder();
 	int slot = 0;

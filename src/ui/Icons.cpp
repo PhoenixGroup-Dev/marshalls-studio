@@ -1,5 +1,6 @@
 #include "Icons.h"
 
+#include <algorithm>
 #include <QGuiApplication>
 #include <QPainter>
 #include <QPainterPath>

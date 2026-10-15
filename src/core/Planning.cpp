@@ -1,5 +1,6 @@
 #include "Planning.h"
 
+#include <algorithm>
 #include <QUrl>
 #include <cmath>
 

@@ -91,6 +91,7 @@ protected:
 	bool eventFilter(QObject *o, QEvent *e) override;
 
 private:
+	void doRebuild();
 	void layoutCards();
 	void updateStates();
 	void tickThumbnails();
@@ -106,6 +107,7 @@ private:
 	QLabel *m_empty;
 	QTimer *m_thumbTimer;
 	QString m_filter = QStringLiteral("all");
+	bool m_rebuildPending = false;
 };
 
 } // namespace ms

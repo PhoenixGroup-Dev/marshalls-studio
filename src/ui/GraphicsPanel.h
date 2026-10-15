@@ -22,7 +22,9 @@ signals:
 	void editOverlay(const QString &uid);    // empty = new
 
 private:
+	void doRebuild();
 	void refreshStates();
+	bool m_rebuildPending = false;
 	Studio *m_studio;
 	QVBoxLayout *m_list;
 	QWidget *m_listHost;
