@@ -28,7 +28,7 @@ jobs:
         run: ctest --test-dir build -LE integration --output-on-failure
       - name: Integration tests (real libobs engine)
         env:
-          MS_TEST_ENV: ${{ runner.temp }}/ms-test-env
+          MS_TEST_ENV: /tmp/ms-test-env # world-traversable: nginx workers run as another user
           QTEST_DISABLE_STACK_DUMP: "1"
         run: |
           bash scripts/linux/test-env.sh start
