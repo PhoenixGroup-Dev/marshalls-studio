@@ -25,7 +25,7 @@ $Qt = Get-ChildItem $DotDeps -Directory -Filter "obs-deps-qt6-*-x64" | Select-Ob
 $ObsDeps = Get-ChildItem $DotDeps -Directory -Filter "obs-deps-20*-x64" | Select-Object -First 1
 if (-not $Qt) { throw "Qt6 do obs-deps não encontrado em $DotDeps" }
 
-$PrefixPath = "$Prefix;$($Qt.FullName);$($ObsDeps.FullName)"
+$PrefixPath = "$Prefix;$Prefix\cmake;$($Qt.FullName);$($ObsDeps.FullName)"
 cmake -S $Root -B $Build -G "Visual Studio 17 2022" -A x64 "-DCMAKE_PREFIX_PATH=$PrefixPath" -DMS_BUILD_TESTS=ON
 if ($LASTEXITCODE -ne 0) { throw "configuração falhou" }
 cmake --build $Build --config $Config --parallel
