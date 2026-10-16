@@ -97,8 +97,6 @@ bool ObsDisplay::event(QEvent *e)
 {
 	if (e->type() == QEvent::Expose || e->type() == QEvent::UpdateRequest || e->type() == QEvent::Show)
 		createDisplay();
-	if (e->type() == QEvent::Hide)
-		; // keep the display: re-creating swapchains is expensive
 	return QWidget::event(e);
 }
 

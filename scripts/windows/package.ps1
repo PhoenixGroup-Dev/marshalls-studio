@@ -45,9 +45,27 @@ foreach ($p in $Plugins) {
 }
 Copy-Item -Recurse "$Prefix\data\libobs" "$Dist\data\libobs"
 
-# Qt runtime
-& "$QtDir\bin\windeployqt.exe" --release --no-system-d3d-compiler --no-opengl-sw "$Bin\MarshallsStudio.exe"
-if ($LASTEXITCODE -ne 0) { throw "windeployqt falhou" }
+# Qt runtime: windeployqt when available, otherwise copy the modules used by
+# the app (the Qt bundled with obs-deps does not ship windeployqt).
+$windeployqt = "$QtDir\bin\windeployqt.exe"
+if (Test-Path $windeployqt) {
+    & $windeployqt --release --no-system-d3d-compiler --no-opengl-sw "$Bin\MarshallsStudio.exe"
+    if ($LASTEXITCODE -ne 0) { throw "windeployqt falhou" }
+} else {
+    foreach ($m in @("Qt6Core", "Qt6Gui", "Qt6Widgets", "Qt6Network", "Qt6Svg")) {
+        if (Test-Path "$QtDir\bin\$m.dll") { Copy-Item "$QtDir\bin\$m.dll" $Bin }
+    }
+    foreach ($dir in @("platforms", "styles", "imageformats", "iconengines")) {
+        if (Test-Path "$QtDir\plugins\$dir") {
+            New-Item -ItemType Directory -Force -Path "$Bin\$dir" | Out-Null
+            Get-ChildItem "$QtDir\plugins\$dir" -Filter "*.dll" | Where-Object { $_.Name -notmatch "d\.dll$" } |
+                Copy-Item -Destination "$Bin\$dir"
+        }
+    }
+    if (-not (Test-Path "$Bin\platforms\qwindows.dll")) { throw "qwindows.dll não encontrado em $QtDir\plugins\platforms" }
+    New-Item -ItemType Directory -Force -Path "$Bin\translations" | Out-Null
+    Get-ChildItem "$QtDir\translations" -Filter "qtbase_pt_BR.qm" -ErrorAction SilentlyContinue | Copy-Item -Destination "$Bin\translations"
+}
 
 # MSVC runtime (app-local deployment)
 if ($env:VCToolsRedistDir) {
