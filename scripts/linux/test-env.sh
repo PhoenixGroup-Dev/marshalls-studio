@@ -48,13 +48,23 @@ start() {
 			-map "[c]" -f pulse -device ms_play_c "ms-beeps-c" -map "[d]" -f pulse -device ms_play_d "ms-beeps-d" \
 			>"$MS_TEST_ENV/beeps.log" 2>&1 </dev/null &
 	fi
-	# Give the players a moment and restart any that died (CI audio servers can be slow).
-	sleep 1
+	# Verify each virtual microphone really carries audio; restart its player if
+	# not (CI audio servers can be slow to accept the first stream).
+	has_signal() {
+		timeout 2 parec -d "ms_mic_$1" --raw --format=s16le --rate=48000 --channels=1 2>/dev/null |
+			head -c 48000 | od -An -v -tx1 | tr -d ' \n' | grep -q '[1-9a-f]'
+	}
 	for spec in "a:440" "b:880"; do
 		n="${spec%%:*}"; f="${spec##*:}"
-		pgrep -f "^ffmpeg .*ms-tone-$n" >/dev/null || setsid nohup ffmpeg -nostdin -loglevel error -re -f lavfi \
-			-i "sine=f=$f:sample_rate=48000" -af volume=0.5 -f pulse -device "ms_play_$n" "ms-tone-$n" \
-			>>"$MS_TEST_ENV/tone-$n.log" 2>&1 </dev/null &
+		for attempt in 1 2 3; do
+			has_signal "$n" && break
+			echo "virtual mic $n silent, restarting its player (attempt $attempt)"
+			pkill -f "^ffmpeg .*ms-tone-$n" 2>/dev/null; sleep 0.5
+			setsid nohup ffmpeg -nostdin -loglevel error -re -f lavfi -i "sine=f=$f:sample_rate=48000" -af volume=0.5 \
+				-f pulse -device "ms_play_$n" "ms-tone-$n" >>"$MS_TEST_ENV/tone-$n.log" 2>&1 </dev/null &
+			sleep 1.5
+		done
+		has_signal "$n" && echo "virtual mic $n: signal OK" || echo "WARNING: virtual mic $n still silent"
 	done
 	pactl list short sinks | grep -q ms_monitor || pactl load-module module-null-sink sink_name=ms_monitor >/dev/null
 	pactl set-default-sink ms_monitor >/dev/null 2>&1 || true
