@@ -28,6 +28,15 @@ Get-ChildItem "$Prefix\bin\64bit" -File | Where-Object {
     $_.Name -notmatch '^obs64\.(exe|pdb)$' -and $_.Name -notmatch '^Qt6' -and $_.Name -notmatch 'frontend'
 } | Copy-Item -Destination $Bin
 
+# Prebuilt dependency DLLs (FFmpeg, x264, librist, srt, mbedTLS, ...) that libobs
+# and its plugins load; cmake --install does not copy all of them.
+$DotDeps = Join-Path $Root "deps\obs-studio\.deps"
+$ObsDeps = Get-ChildItem $DotDeps -Directory -Filter "obs-deps-20*-x64" -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($ObsDeps -and (Test-Path "$($ObsDeps.FullName)\bin")) {
+    Get-ChildItem "$($ObsDeps.FullName)\bin" -Filter "*.dll" | Where-Object { -not (Test-Path (Join-Path $Bin $_.Name)) } |
+        Copy-Item -Destination $Bin
+}
+
 Copy-Item "$Build\src\app\$Config\MarshallsStudio.exe" $Bin
 if (Test-Path "$Build\src\app\$Config\MarshallsStudio.pdb") { Copy-Item "$Build\src\app\$Config\MarshallsStudio.pdb" $Bin }
 
@@ -71,6 +80,27 @@ if (Test-Path $windeployqt) {
 if ($env:VCToolsRedistDir) {
     $crt = Get-ChildItem "$env:VCToolsRedistDir\x64" -Directory -Filter "Microsoft.VC*.CRT" | Select-Object -First 1
     if ($crt) { Copy-Item "$($crt.FullName)\*.dll" $Bin }
+}
+
+# Verify that every DLL imported by the executable, libobs and the plugins is
+# shipped or provided by Windows (a missing one stops the app before main()).
+$dumpbin = (Get-Command dumpbin.exe -ErrorAction SilentlyContinue).Source
+if ($dumpbin) {
+    $shipped = @{}
+    Get-ChildItem $Dist -Recurse -Include *.dll, *.exe | ForEach-Object { $shipped[$_.Name.ToLower()] = $true }
+    $missing = @()
+    $binaries = @(Get-ChildItem $Bin -Include *.exe, *.dll -Recurse) + @(Get-ChildItem "$Dist\obs-plugins\64bit" -Filter *.dll)
+    foreach ($b in $binaries) {
+        $deps = & $dumpbin /nologo /dependents $b.FullName | Where-Object { $_ -match '^\s+\S+\.dll\s*$' } | ForEach-Object { $_.Trim().ToLower() }
+        foreach ($d in $deps) {
+            if ($shipped.ContainsKey($d) -or $d -like "api-ms-*" -or $d -like "ext-ms-*" -or (Test-Path "$env:WINDIR\System32\$d")) { continue }
+            $missing += "$($b.Name) -> $d"
+        }
+    }
+    if ($missing.Count -gt 0) { throw "DLLs ausentes no pacote: $($missing -join '; ')" }
+    Write-Host "Verificação de dependências: todas as DLLs importadas estão presentes."
+} else {
+    Write-Warning "dumpbin não encontrado: verificação de dependências não executada"
 }
 
 Copy-Item "$Root\LICENSE" "$Dist\LICENSE.txt"
