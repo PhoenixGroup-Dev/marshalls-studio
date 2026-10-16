@@ -16,6 +16,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Log helper
+        shell: pwsh
+        run: |
+          # Runs a script, keeps its full output in logs\<name>.log and, on
+          # failure, publishes the last lines as an error annotation (readable
+          # through the checks API without downloading the raw logs).
+          New-Item -ItemType Directory -Force -Path logs | Out-Null
+          @'
+          param([string]$Name, [string]$Command)
+          $log = "logs\$Name.log"
+          $global:LASTEXITCODE = 0
+          $ok = $true
+          try { Invoke-Expression "$Command *>&1" | Tee-Object -FilePath $log; if ($LASTEXITCODE -ne 0) { $ok = $false } }
+          catch { $_ | Out-String | Tee-Object -FilePath $log -Append; $ok = $false }
+          if (-not $ok) {
+            $tail = (Get-Content $log -Tail 60) -join "%0A"
+            Write-Output "::error title=$Name::$tail"
+            exit 1
+          }
+          '@ | Set-Content logs\run-step.ps1
+
       - name: Cache libobs build
         id: obs-cache
         uses: actions/cache@v4
@@ -28,7 +49,7 @@ jobs:
       - name: Build libobs ${{ env.OBS_VERSION }}
         if: steps.obs-cache.outputs.cache-hit != 'true'
         shell: pwsh
-        run: ./scripts/windows/build-obs.ps1 -ObsVersion $env:OBS_VERSION
+        run: ./logs/run-step.ps1 build-obs "./scripts/windows/build-obs.ps1 -ObsVersion $env:OBS_VERSION"
 
       - name: MSVC environment
         uses: ilammy/msvc-dev-cmd@v1.13.0
@@ -37,13 +58,19 @@ jobs:
 
       - name: Build, test and package
         shell: pwsh
-        run: ./scripts/windows/build.ps1 -Config RelWithDebInfo
+        run: ./logs/run-step.ps1 build "./scripts/windows/build.ps1 -Config RelWithDebInfo"
 
       - name: Installer
         shell: pwsh
         run: |
           choco install nsis -y --no-progress
-          ./scripts/windows/make-installer.ps1
+          ./logs/run-step.ps1 installer "./scripts/windows/make-installer.ps1"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-logs
+          path: logs/*.log
 
       - uses: actions/upload-artifact@v4
         with:
