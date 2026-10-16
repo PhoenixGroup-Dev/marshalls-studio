@@ -41,6 +41,9 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "compilação do OBS falhou" }
     cmake --install build_x64 --prefix $Prefix --config $Config
     if ($LASTEXITCODE -ne 0) { throw "instalação do OBS falhou" }
+    # Headers, import libraries and libobsConfig.cmake are a separate component.
+    cmake --install build_x64 --prefix $Prefix --config $Config --component Development
+    if ($LASTEXITCODE -ne 0) { throw "instalação dos arquivos de desenvolvimento do OBS falhou" }
 } finally {
     Pop-Location
 }

@@ -15,7 +15,12 @@ $Prefix = Join-Path $Deps "obs-install"
 $DotDeps = Join-Path $Deps "obs-studio\.deps"
 $Build = Join-Path $Root "build-win"
 
-if (-not (Test-Path "$Prefix\cmake")) { throw "libobs não encontrado em $Prefix. Execute build-obs.ps1 primeiro." }
+$LibobsConfig = Get-ChildItem $Prefix -Recurse -Filter "libobsConfig.cmake" -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $LibobsConfig) {
+    $listing = (Get-ChildItem $Prefix -Recurse -Depth 2 -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName.Substring($Prefix.Length) }) -join " | "
+    throw "libobsConfig.cmake não encontrado em $Prefix (execute build-obs.ps1). Conteúdo: $listing"
+}
+Write-Host "libobs: $($LibobsConfig.FullName)"
 $Qt = Get-ChildItem $DotDeps -Directory -Filter "obs-deps-qt6-*-x64" | Select-Object -First 1
 $ObsDeps = Get-ChildItem $DotDeps -Directory -Filter "obs-deps-20*-x64" | Select-Object -First 1
 if (-not $Qt) { throw "Qt6 do obs-deps não encontrado em $DotDeps" }

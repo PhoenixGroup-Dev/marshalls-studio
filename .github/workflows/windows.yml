@@ -44,7 +44,7 @@ jobs:
           path: |
             deps/obs-install
             deps/obs-studio/.deps
-          key: obs-${{ env.OBS_VERSION }}-windows-x64-v1
+          key: obs-${{ env.OBS_VERSION }}-windows-x64-v2
 
       - name: Build libobs ${{ env.OBS_VERSION }}
         if: steps.obs-cache.outputs.cache-hit != 'true'
