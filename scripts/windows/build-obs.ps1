@@ -25,12 +25,17 @@ if (-not (Test-Path $Src)) {
     if ($LASTEXITCODE -ne 0) { throw "git clone falhou" }
 }
 
+# Newer MSVC releases (17.12+) add warnings C5286/C5287 (mixed enum types) that
+# OBS 30.2.3 treats as errors in win-capture; silence them for this build only.
+$env:CL = "/wd5286 /wd5287 $env:CL"
+
 Push-Location $Src
 try {
     cmake --preset windows-x64 `
         -DENABLE_BROWSER=OFF -DENABLE_WEBSOCKET=OFF -DENABLE_SCRIPTING=OFF `
         -DENABLE_VLC=OFF -DENABLE_AJA=OFF -DENABLE_VIRTUALCAM=OFF -DENABLE_WEBRTC=OFF `
-        -DENABLE_NEW_MPEGTS_OUTPUT=OFF -DENABLE_UPDATER=OFF
+        -DENABLE_NEW_MPEGTS_OUTPUT=OFF -DENABLE_UPDATER=OFF `
+        -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF
     if ($LASTEXITCODE -ne 0) { throw "configuração do OBS falhou" }
     cmake --build build_x64 --config $Config --parallel
     if ($LASTEXITCODE -ne 0) { throw "compilação do OBS falhou" }
