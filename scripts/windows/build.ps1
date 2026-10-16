@@ -33,8 +33,12 @@ if ($LASTEXITCODE -ne 0) { throw "compilação falhou" }
 
 if (-not $SkipTests) {
     $env:PATH = "$($Qt.FullName)\bin;$env:PATH"
-    ctest --test-dir $Build -C $Config -LE integration --output-on-failure
-    if ($LASTEXITCODE -ne 0) { throw "testes falharam" }
+    if (Test-Path "$Build\CTestTestfile.cmake") {
+        ctest --test-dir $Build -C $Config -LE integration --output-on-failure
+        if ($LASTEXITCODE -ne 0) { throw "testes falharam" }
+    } else {
+        Write-Warning "Testes não compilados (Qt sem o módulo Test)"
+    }
 }
 
 & "$PSScriptRoot\package.ps1" -Config $Config -Build $Build -QtDir $Qt.FullName

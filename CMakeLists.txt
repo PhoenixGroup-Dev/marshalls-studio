@@ -32,8 +32,13 @@ if(MS_BUILD_ENGINE)
 endif()
 
 if(MS_BUILD_TESTS)
-  enable_testing()
-  find_package(Qt6 REQUIRED COMPONENTS Test)
-  add_subdirectory(tests)
+  # The Qt build bundled with obs-deps (Windows) has no QtTest module.
+  find_package(Qt6 QUIET COMPONENTS Test)
+  if(TARGET Qt6::Test)
+    enable_testing()
+    add_subdirectory(tests)
+  else()
+    message(WARNING "Qt6 Test não encontrado: testes automatizados desativados neste build")
+  endif()
 endif()
 
