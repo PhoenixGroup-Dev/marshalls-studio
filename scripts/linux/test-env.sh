@@ -70,13 +70,19 @@ rtmp {
 }
 CONF
 	if ! [ -f "$MS_TEST_ENV/nginx/nginx.pid" ] || ! kill -0 "$(cat "$MS_TEST_ENV/nginx/nginx.pid")" 2>/dev/null; then
-		nginx -c "$MS_TEST_ENV/nginx/nginx.conf" -p "$MS_TEST_ENV/nginx" -e "$MS_TEST_ENV/nginx/error.log"
+		NGINX=nginx
+		# CI runners are not root: nginx needs privileges for its default paths.
+		if [ "$(id -u)" != 0 ] && command -v sudo >/dev/null; then NGINX="sudo nginx"; fi
+		$NGINX -c "$MS_TEST_ENV/nginx/nginx.conf" -p "$MS_TEST_ENV/nginx" -e "$MS_TEST_ENV/nginx/error.log" ||
+			{ echo "nginx failed to start"; cat "$MS_TEST_ENV/nginx/error.log" 2>/dev/null; }
 	fi
+	for _ in $(seq 1 20); do (exec 3<>/dev/tcp/127.0.0.1/1935) 2>/dev/null && break; sleep 0.25; done
+	(exec 3<>/dev/tcp/127.0.0.1/1935) 2>/dev/null && echo "rtmp server listening on 127.0.0.1:1935" || echo "WARNING: rtmp server not listening"
 	echo "test env ready: DISPLAY=$DISPLAY, pulse sources: $(pactl list short sources | awk '{print $2}' | tr '\n' ' ')"
 }
 
 stop() {
-	[ -f "$MS_TEST_ENV/nginx/nginx.pid" ] && kill "$(cat "$MS_TEST_ENV/nginx/nginx.pid")" 2>/dev/null
+	[ -f "$MS_TEST_ENV/nginx/nginx.pid" ] && { kill "$(cat "$MS_TEST_ENV/nginx/nginx.pid")" 2>/dev/null || sudo kill "$(cat "$MS_TEST_ENV/nginx/nginx.pid")" 2>/dev/null; }
 	pkill -f "ms-tone-" 2>/dev/null
 	pkill -f "ms-beeps" 2>/dev/null
 	pulseaudio --kill 2>/dev/null
