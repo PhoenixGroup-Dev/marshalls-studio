@@ -33,4 +33,10 @@ jobs:
         run: |
           bash scripts/linux/test-env.sh start
           export DISPLAY=:99
-          ./build/tests/engine/tst_engine
+          set +e
+          ./build/tests/engine/tst_engine > engine-tests.log 2>&1
+          rc=$?
+          # Failures and measurements as annotations (readable without raw logs).
+          grep -E "^(FAIL|   Loc|QINFO)" engine-tests.log | head -60 | sed ':a;N;$!ba;s/\n/%0A/g' | sed 's/^/::notice title=engine tests::/'
+          grep -E "^Totals" engine-tests.log
+          exit $rc
