@@ -31,7 +31,9 @@ jobs:
           MS_TEST_ENV: /tmp/ms-test-env # world-traversable: nginx workers run as another user
           QTEST_DISABLE_STACK_DUMP: "1"
         run: |
-          bash scripts/linux/test-env.sh start
+          bash scripts/linux/test-env.sh start 2>&1 | tee test-env.log
+          echo "::notice title=test env::$(sed ':a;N;$!ba;s/\n/%0A/g' test-env.log)"
+          echo "::notice title=pulse::$(pactl list short sources | sed ':a;N;$!ba;s/\n/%0A/g')%0A$(pactl list short sink-inputs | sed ':a;N;$!ba;s/\n/%0A/g')"
           export DISPLAY=:99
           set +e
           ./build/tests/engine/tst_engine > engine-tests.log 2>&1
